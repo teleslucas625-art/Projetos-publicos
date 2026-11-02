@@ -1,170 +1,359 @@
+import bd_mercado
 
-bd_produtos = []
 carrinho = []
 
 def adicionar_produto():
     
-    print("--- ADICIONAR PRODUTO ---\n")
+    print("      ADICIONAR PRODUTO\n")
     while True:
-        produtos = input("Digite o nome do produto: ")
-        if produtos.strip() == "":
+        produto = input("Digite o nome do produto: ")
+        if produto.strip() == "":
             print("ERRO: NAO DEIXE OS CAMPOS VAZIOS")
             continue
         break
 
     while True:
         try:
-            valor_produto = int(input("Digite o valor do produto: "))
+            valor_produto = float(input("Digite o valor do produto: R$ "))
             quant_produto = int(input("Digite a quantidade em estoque: "))
-            
+            break
         except ValueError:
-            print("ERRO: NAO DEIXE OS CAMPOS VAZIOS")
+            print("ERRO: DIGITE APENAS NUMEROS!")
             continue
-        break
+        
 
-    produto = {
-        "produto" : produtos,
-        "valor" : valor_produto,
-        "quantidade" : quant_produto
-    }
+    try:
+        conn = bd_mercado.bd_mercado()
+        if conn is None:
+            print("Sem conexao com o banco de dados!")
+            return
 
-    bd_produtos.append(produto)
+        cursor = conn.cursor()
+        query = "INSERT INTO produtos (produto, valor, quantidade) VALUES (%s, %s, %s)"
+        cursor.execute(query, (produto, valor_produto, quant_produto))
+        conn.commit()
+        cursor.close()
+        conn.close()
 
-    print("\nPRODUTO ADICIONADO!")
-    print("--------------------------------------------\n")
+        print("\nPRODUTO ADICIONADO!")
+        print("--------------------------------------------\n")
+
+    except Exception as e:
+      print(f"Erro ao salvar no banco: {e}")
 
 def lista_de_produtos():
 
-    if not bd_produtos:
-        print("Nenhum produto em estoque!")
+    try:
+        conn = bd_mercado.bd_mercado()
+        if conn is None:
+            print("Sem conexao com o banco de dados!")
+            return
+        cursor = conn.cursor()
+        cursor.execute("SELECT produto, valor, quantidade FROM produtos")
+        produtos = cursor.fetchall()
 
-    print("--- LISTA DE PRODUTOS ---\n")
+        if not produtos:
+            print("Nenhum produto em estoque!")
+            cursor.close()
+            conn.close()
+            print("--------------------------------------------\n")
+            return
+        
+        print("      LISTA DE PRODUTOS")
 
-    for produto in bd_produtos:
-        print(f"Produto: {produto["produto"]}\nValor: {produto["valor"]}\nEstoque: {produto["quantidade"]}\n")
+        for item in produtos:
+            nome = item[0]
+            valor = item[1]
+            quantidade = item[2]
+            print(f"\nProduto: {nome}\nValor: R$ {valor:.2f}\nEstoque: {quantidade}")
 
-    print("--------------------------------------------\n")
+        cursor.close()
+        conn.close()    
+        print("\n--------------------------------------------\n")
+    except Exception as e:
+        print(f"Erro ao listar os produtos: {e}")
+
+def alterar():
+    try:
+        conn = bd_mercado.bd_mercado()
+        if conn is None:
+            print("Sem conexao com o banco de dados!")
+            return
+        cursor = conn.cursor()
+        cursor.execute("SELECT produto, valor, quantidade FROM produtos")
+        produtos = cursor.fetchall()
+    
+        if not produtos:
+            print("Nenhum produto em estoque!")
+            cursor.close()
+            conn.close()
+            print("--------------------------------------------\n")
+            return
+
+        while True:
+
+            cursor.execute("SELECT produto, valor, quantidade FROM produtos")
+            produtos = cursor.fetchall()
+
+            print("      LISTA DE PRODUTOS EM ESTOQUE")
+        
+            for item in produtos:
+                nome = item[0]
+                valor = item[1]
+                quantidade = item[2]
+                print(f"\nProduto: {nome}\nValor: R$ {valor:.2f}\nEstoque: {quantidade}")
+
+            produto_alterar = input("\nDigite o nome do produto que deseja alterar: ")
+            encontrado = False
+
+            produto_selecionado = None
+
+            for item in produtos:
+                nome = item[0]
+                if produto_alterar == nome.strip().lower():
+                    encontrado = True
+                    produto_selecionado = item
+                    break
+
+            if not encontrado:
+                print("\nPRODUTO NÃO ENCONTRADO!\n")
+                continue
+
+            nome_alterar = produto_selecionado[0]
+            valor_alterar = produto_selecionado[1]
+            quantidade_alterar = produto_selecionado[2]
+    
+            print("\nProduto a ser alterado: ")
+            print(f"\nProduto: {nome_alterar}\nValor: R$ {valor_alterar}\nEstoque: {quantidade_alterar}\n")
+
+            confirmar3 = input("Deseja alterar esse produto? (S/N): ").strip().lower()
+            if confirmar3 != "s":
+                print("\nSelecione outro produto!")
+                continue
+
+            valor_novo = float(input("\nDigite o novo valor do produto: R$ "))
+            quantidade_nova = int(input("Digite a nova quantidade em estoque: "))
+
+            cursor.execute("""
+                UPDATE produtos
+                SET valor = %s , quantidade = %s
+                WHERE produto = %s
+                """,(valor_novo,quantidade_nova,nome))
+            conn.commit()
+
+            print("\nProduto alterado com sucesso!")
+
+            continuar4 = input("Deseja alterar outro produto? (S/N): ")
+            if continuar4 != "s":
+                break
+
+        cursor.close()
+        conn.close()    
+        print("\n--------------------------------------------\n")
+
+    except Exception as e:
+        print(f"Erro ao listar os produtos: {e}")
+
+    
 
 def relatorio_estoque():
 
-    if not bd_produtos:
-        print("Nenhum produto em estoque!")
+    try:
+        conn = bd_mercado.bd_mercado()
+        if conn is None:
+            print("Sem conexao com o banco de dados!")
+            return
+        cursor = conn.cursor()
+        cursor.execute("SELECT produto, valor, quantidade FROM produtos")
+        produtos = cursor.fetchall()
+
+        if not produtos:
+            print("Nenhum produto em estoque!")
+            cursor.close()
+            conn.close()
+            print("\n--------------------------------------------\n")
+            return
+
+        print("      PRODUTOS EM BAIXO ESTOQUE!\n")
+        tem_baixo_estoque = False
+
+        for item in produtos:
+            nome = item[0]
+            valor = item[1]
+            quantidade = item[2]
+            if quantidade < 5:
+                tem_baixo_estoque = True
+                print(f"Produto: {nome}\nValor: R$ {valor:.2f}\nEstoque: {quantidade}")
+                
+        if not tem_baixo_estoque:
+            print("NENHUM PRODUTO EM BAIXO ESTOQUE!")
+
+        cursor.close()
+        conn.close()
         print("\n--------------------------------------------\n")
-        return
 
-    print("PRODUTOS EM BAIXO ESTOQUE!\n")
-
-    for produto in bd_produtos:
-        if int(produto["quantidade"]) < 5:
-            print(f"Produto: {produto["produto"]}\nValor: {produto["valor"]}\nEstoque: {produto["quantidade"]}\n")
-        
-
-    print("--------------------------------------------\n")
+    except Exception as e:
+        print(f"Erro ao listar os produtos em baixo estoque: {e}")
+        print("--------------------------------------------\n")
 
 def compras():
-    print("--- BEM VINDO AO MERCADO ---\n")
-    if not bd_produtos:
-            print("Nenhum produto em estoque!\n")
-            print("--------------------------------------------\n")
+
+    try:
+        conn = bd_mercado.bd_mercado()
+        if conn is None:
+            print("Sem conexao com o banco de dados!")
             return
-    
-    total = 0
 
-    while True:
-
-        print("Essa e a nossa lista de estoque!\n")
+        cursor = conn.cursor()
+        cursor.execute("SELECT produto, valor, quantidade FROM produtos")
+        produtos = cursor.fetchall()
         
-        for produto in bd_produtos:
-            print(f"Produto: {produto["produto"]}\nValor: {produto["valor"]}\nEstoque: {produto["quantidade"]}\n")
-        
-        compra = input("\nDigite o nome do produto que deseja comprar: ").strip().lower()
-        encontrado = False
+        print("      BEM VINDO AO MERCADO\n")
+        if not produtos:
+                print("Nenhum produto em estoque!\n")
+                print("--------------------------------------------\n")
+                return
 
-        for produto in bd_produtos:
+        total = 0
 
-            if compra == produto["produto"].strip().lower():
-                encontrado = True
-                break
+        while True:
+            cursor.execute("SELECT produto, valor, quantidade FROM produtos")
+            produtos = cursor.fetchall()
 
-        if not encontrado:
-            print("PRODUTO NÃO ENCONTRADO!")
-            continue
+            print("Essa e a nossa lista de estoque!\n")
 
-        quantidade = int(input("Digite a quantidade que deseja comprar: "))
+            for item in produtos:
+                nome_estoque = item[0]
+                valor_estoque = item[1]
+                quantidade_estoque = item[2]
+                print(f"Produto: {nome_estoque}\nValor: R$ {valor_estoque}\nEstoque: {quantidade_estoque}\n")
+            
+            compra = input("\nDigite o nome do produto que deseja comprar: ").strip().lower()
+            encontrado = False
 
-        if quantidade > produto["quantidade"] or quantidade < 1:
-            print("\nVALOR INVALIDO OU MAIOR QUE O ESTOQUE!")
-            continue
+            produto_selecionado = None
 
-        produto["quantidade"] -= quantidade
-        
-        valor_produtos = int(produto["valor"]) * quantidade 
-        print(f"\nPRODUTO: {produto["produto"]} | VALOR: {produto["valor"]} | QUANTIDADE: {quantidade}\n")
+            for item in produtos:
+                nome_estoque = item[0]
+                if compra == nome_estoque.strip().lower():
+                    encontrado = True
+                    produto_selecionado = item
+                    break
 
-        total = total + valor_produtos
-        print(f"VALOR TOTAL: {total}\n")
-
-        produto_carrinho = {
-            "produto" : compra,
-            "valor" : (produto["valor"]),
-            "quantidade" : quantidade
-            }
-
-        carrinho.append(produto_carrinho)
-
-        continuar = input("Deseja continuar comprando? (S/N): ").strip().lower()
-
-        if continuar != "s":
-            break
-
-    while True:
-
-        print("--- SEU CARRINHO ---")
-        for produto_carrinho in carrinho:
-            print(f"\nPRODUTO: {produto_carrinho["produto"]} | VALOR: {produto["valor"]} | QUANTIDADE: {produto_carrinho["quantidade"]}")
-        print(f"\nVALOR TOTAL DA COMPRA: {total}\n")
-
-        print("Compras finalizadas !\n")
-        print("--- PAGAMENTO ---")
-        print("1 - Debito/Credito")
-        print("2 - Pix")
-        print("3 - Dinheiro")
-        pagamento = input("\nDigite a forma de pagamento: ")
-
-        if pagamento == "1":
-            print("\nVenda debito/credito confirmada!")
-            print("\n--------------------------------------------\n")
-            return
-        if pagamento == "2":
-            print("\nVenda pix confirmada!")
-            print("\n--------------------------------------------\n")
-            return
-        if pagamento == "3":
-            valor_notas = int(input("Digite o valor total das notas: "))
-            venda_dinheiro = valor_notas - total
-
-            if venda_dinheiro < 0:
-                print("\nDinheiro insuficiente selecione outra forma de pagamento!")
+            if not encontrado:
+                print("\nPRODUTO NÃO ENCONTRADO!\n")
                 continue
 
-            elif venda_dinheiro > 0:
-                print(f"\nValor troco devolvido: {venda_dinheiro}")
-                print("\nVenda dinheiro confirmada!")
+            quantidade_produto = int(input("Digite a quantidade que deseja comprar: "))
+
+            estoque_validar = produto_selecionado[2]
+
+            if quantidade_produto > estoque_validar or quantidade_produto < 1:
+                print("\nVALOR INVALIDO OU MAIOR QUE O ESTOQUE!\n")
+                continuar2 = input("Deseja continuar comprando? (S/N): ").strip().lower()
+                print(" ")
+                if continuar2 != "s":
+                    break
+
+                continue
+
+            nome = produto_selecionado[0]
+            valor = produto_selecionado[1]
+                 
+            cursor.execute("""
+            UPDATE produtos
+            SET quantidade = quantidade - %s
+            WHERE produto = %s
+            """,(quantidade_produto,nome))
+            conn.commit()
+            
+            valor_produtos = valor * quantidade_produto 
+            print(f"\nPRODUTO: {nome} | VALOR: R$ {valor} | QUANTIDADE: {quantidade_produto}\n")
+
+            total = total + valor_produtos
+            print(f"VALOR TOTAL: {total}\n")
+
+            produto_comprado = {
+                "nome_comprado" : nome,
+                "valor_comprado" :  valor,
+                "quantidade_comprada" : quantidade_produto
+            }
+            carrinho.append(produto_comprado)
+
+            continuar = input("Deseja continuar comprando? (S/N): ").strip().lower()
+
+            if continuar != "s":
+                break
+
+        while True: 
+
+            if total == 0:
+                print("O valor de sua compras e 0!")
+                print("Volte sempre!")
                 print("\n--------------------------------------------\n")
-                return
+                break
+
+            print("\n      SEU CARRINHO")
+            for produto_comprado in carrinho:
+                print(f"\nPRODUTO: {produto_comprado["nome_comprado"]} | VALOR: {produto_comprado["valor_comprado"]} | QUANTIDADE: {produto_comprado["quantidade_comprada"]}")
+
+            print(f"\nVALOR TOTAL DA COMPRA: {total}\n")
+
+            print("Compras finalizadas !\n")
+            print("--- PAGAMENTO ---")
+            print("1 - Debito/Credito")
+            print("2 - Pix")
+            print("3 - Dinheiro")
+            pagamento = input("\nDigite a forma de pagamento: ")
+
+            if pagamento == "1":
+                print("\nVenda debito/credito confirmada!")
+                print("\n--------------------------------------------\n")
+                break
+            elif pagamento == "2":
+                print("\nVenda pix confirmada!")
+                print("\n--------------------------------------------\n")
+                break
+            
+            elif pagamento == "3":
+                valor_notas = int(input("Digite o valor total das notas: "))
+                venda_dinheiro = valor_notas - total
+
+                if venda_dinheiro < 0:
+                    print("\nDinheiro insuficiente selecione outra forma de pagamento!")
+                    continue
+
+                elif venda_dinheiro > 0:
+                    print(f"\nValor troco devolvido: {venda_dinheiro}")
+                    print("\nVenda dinheiro confirmada!")
+                    print("\n--------------------------------------------\n")
+                    break
+                
+                else:
+                    print("\nVenda dinheiro confirmada!")
+                    print("\n--------------------------------------------\n")
+                    break
             else:
-                print("\nVenda dinheiro confirmada!")
-                print("\n--------------------------------------------\n")
-        
+                print("ERRO: DIGITE UM NUMERO DE 1 A 3!")
+                continue
+
+        cursor.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"Erro ao listar os produtos em baixo estoque: {e}")
+        print("--------------------------------------------\n")
+
 while True:
 
-    print("--- MENU MERCADO ---\n")
+    print("      MENU MERCADO\n")
 
     print("1- Adicionar produto")
     print("2- Lista de produtos")
-    print("3- Relatorio de estoque")
-    print("4- Caixa (compras)")
-    print("5- Sair\n")
+    print("3- Alterar valor/estoque")
+    print("4- Relatorio de estoque")
+    print("5- Caixa (compras)")
+    print("6- Sair\n")
 
     escolha = input("Digite o que deseja fazer: ")
 
@@ -178,13 +367,17 @@ while True:
 
     elif escolha == "3":
         print("--------------------------------------------\n")
-        relatorio_estoque()
+        alterar()
 
     elif escolha == "4":
         print("--------------------------------------------\n")
-        compras()
+        relatorio_estoque()
 
     elif escolha == "5":
+        print("--------------------------------------------\n")
+        compras()
+
+    elif escolha == "6":
         print("Voce saiu!")
         break
     
